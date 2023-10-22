@@ -2,8 +2,13 @@
  * NYC_PI_CALC.c
  *
  * Created: 20.03.2018 18:32:07
- * Author : chaos
+ * Author : Cwis
  */ 
+
+
+/*********************************************************************************
+Start of includes
+*********************************************************************************/
 
 //#include <avr/io.h>
 #include "avr_compiler.h"
@@ -12,6 +17,7 @@
 #include "clksys_driver.h"
 #include "sleepConfig.h"
 #include "port_driver.h"
+#include "math.h"
 
 #include "FreeRTOS.h"
 #include "task.h"
@@ -28,17 +34,33 @@
 
 #include "ButtonHandler.h"
 
+/*********************************************************************************
+End of includes
+*********************************************************************************/
 
+/*********************************************************************************
+Start of global variables
+*********************************************************************************/
 
 volatile float LeibnizPi = 0;
+volatile float FakePI = 0;
+volatile float RefPi = 3.14159265359;
 
 
+/*********************************************************************************
+End of global variables
+*********************************************************************************/
 
+
+/*********************************************************************************
+St
+*********************************************************************************/
 
 extern void vApplicationIdleHook( void );
 void vPiLeibniz(void *pvParameters);
 void vButtonTask(void *pvParameters);
 void controllerTask(void* pvParameters);
+
 
 TaskHandle_t ledTask;
 
@@ -55,8 +77,8 @@ int main(void)
 	xTaskCreate(controllerTask, (const char *) "control_tsk", configMINIMAL_STACK_SIZE+150, NULL, 3, NULL);
 	xTaskCreate(vButtonTask, (const char *) "btTask", configMINIMAL_STACK_SIZE, NULL, 2, NULL);
 	//xTaskCreate( vTimeMeasurement, (const char *) "TimeMeasurement", configMINIMAL_STACK_SIZE+10, NULL, 1, &TimeMeasurement);
-	xTaskCreate( vPiLeibniz, (const char *) "Leibniz_tsk", configMINIMAL_STACK_SIZE+10, NULL, 1, NULL);
-	
+	xTaskCreate( vPiLeibniz, (const char *) "Leibniz_tsk", configMINIMAL_STACK_SIZE+10, NULL, 2, NULL);
+
 	
 	vTaskStartScheduler();
 	
@@ -70,6 +92,7 @@ void vPiLeibniz(void* pvParameters)
 		while (1)
 		{
 			
+			
 			LeibnizPi = LeibnizPi + (NextSign / (2 * CurIterations + 1)) * 4;
 			NextSign = -NextSign;
 			CurIterations++;
@@ -77,15 +100,30 @@ void vPiLeibniz(void* pvParameters)
 }
 
 
-void vButtonTask(void *pvParameters) {
-	initButtons();
-	vTaskDelay(3000);
-	for(;;) {
-		updateButtons();
-		vTaskDelay((100/BUTTON_UPDATE_FREQUENCY_HZ)/portTICK_RATE_MS);
-	}
 
+void vButtonTask(void* pvParameters) {
+	initButtons(); // Initialize Button handler
+	for(;;) {
+		updateButtons(); // Update Button States
+		
+		// Read Button State and set EventBits in EventGroup based on button press
+		if(getButtonPress(BUTTON1) == SHORT_PRESSED) {
+			xEventGroupSetBits(evButtonEvents, EVBUTTONS_S1);
+		}
+		if(getButtonPress(BUTTON2) == SHORT_PRESSED) {
+			xEventGroupSetBits(evButtonEvents, EVBUTTONS_S2);
+		}
+		if(getButtonPress(BUTTON3) == SHORT_PRESSED) {
+			xEventGroupSetBits(evButtonEvents, EVBUTTONS_S3);
+		}
+		if(getButtonPress(BUTTON4) == SHORT_PRESSED) {
+			xEventGroupSetBits(evButtonEvents, EVBUTTONS_S4);
+		}
+
+		vTaskDelay((1000/BUTTON_UPDATE_FREQUENCY_HZ)/portTICK_RATE_MS);
+	}
 }
+
 
 void controllerTask(void* pvParameters) {
 	initButtons();
