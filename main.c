@@ -44,7 +44,9 @@ volatile double VietaPi = 0;
 volatile float RefPi = 3.14159265359;
 volatile int GlobalSec = 0;
 volatile int GlobalMin = 0;
+volatile int GlobalHunSec = 0;
 volatile bool Reset = 0;
+volatile bool TimerRuning = 0;
 
 typedef enum {StopLeibniz, StopVieta, RunLeibniz, RunVieta}StateType;
 volatile StateType State = StopLeibniz;
@@ -56,7 +58,6 @@ Function Definitions
 
 extern void vApplicationIdleHook( void );
 void vPiLeibniz(void *pvParameters);
-//void vButtonTask(void *pvParameters);
 void controllerTask(void* pvParameters);
 void vVietaPi(void* pvParameters);
 void vCompare(void* pvParameters);
@@ -82,7 +83,6 @@ int main(void)
 	vInitDisplay();
 	
 	xTaskCreate(controllerTask, (const char *) "vControl_tsk", configMINIMAL_STACK_SIZE+150, NULL, 3, NULL);
-	//xTaskCreate(vButtonTask, (const char *) "btTask", configMINIMAL_STACK_SIZE, NULL, 2, NULL);
 	xTaskCreate( vPiLeibniz, (const char *) "vLeibniz_tsk", configMINIMAL_STACK_SIZE+10, NULL, 2, NULL);
 	xTaskCreate( vVietaPi, (const char *) "vVietaPi_tsk", configMINIMAL_STACK_SIZE+10, NULL, 2, NULL);
 	xTaskCreate( vCompare, (const char *) "vComp_tsk", configMINIMAL_STACK_SIZE+10, NULL, 3, NULL);
@@ -102,10 +102,15 @@ Functions
 void vTimeMeasurement(void* pvParameters){							//Time Function for measuring execution time
 TickType_t lasttime = xTaskGetTickCount();
 	for(;;) {
-		if ((State == RunLeibniz) || (State == RunVieta))
+		if (TimerRuning)
 		{
-			GlobalSec++;
-			if(GlobalSec >= 60) {
+			
+			GlobalHunSec++;
+			if(GlobalHunSec >= 100) {
+				GlobalHunSec = 0;
+				GlobalSec++;
+			}
+			if (GlobalSec >= 60){
 				GlobalSec = 0;
 				GlobalMin++;
 			}
@@ -118,8 +123,9 @@ TickType_t lasttime = xTaskGetTickCount();
 			GlobalSec = 0;
 			GlobalMin = 0;
 			Reset = 0;
+			TimerRuning = 0;
 		}
-		vTaskDelayUntil(&lasttime, 1000/portTICK_RATE_MS);
+		vTaskDelayUntil(&lasttime, 10/portTICK_RATE_MS);
 	}
 }
 
@@ -142,7 +148,7 @@ void vPiLeibniz(void* pvParameters)												//Approximation of Pi by Leibniz 
 				CurIterations = 0;
 				NextSign = 1.0;
 			}
-			vTaskDelay(10/portTICK_RATE_MS);
+			vTaskDelay(5/portTICK_RATE_MS);
 		}
 }
 
@@ -167,49 +173,24 @@ void vVietaPi(void* pvParameters)											//Approximation of Pi by Vieta Metho
 				CurrentSqrt = 0;
 				VietaPi = 0;
 			}
-		vTaskDelay(10/portTICK_RATE_MS);
+		vTaskDelay(5/portTICK_RATE_MS);
 	}
 }
 
 
-
-/*
-void vButtonTask(void* pvParameters) {													//Button handler
-	initButtons(); // Initialize Button handler
-	for(;;) {
-		updateButtons(); // Update Button States
-		
-		// Read Button State and set EventBits in EventGroup based on button press
-		if(getButtonPress(BUTTON1) == SHORT_PRESSED) {
-			xEventGroupSetBits(evButtonEvents, EVBUTTONS_S1);
-		}
-		if(getButtonPress(BUTTON2) == SHORT_PRESSED) {
-			xEventGroupSetBits(evButtonEvents, EVBUTTONS_S2);
-		}
-		if(getButtonPress(BUTTON3) == SHORT_PRESSED) {
-			xEventGroupSetBits(evButtonEvents, EVBUTTONS_S3);
-		}
-		if(getButtonPress(BUTTON4) == SHORT_PRESSED) {
-			xEventGroupSetBits(evButtonEvents, EVBUTTONS_S4);
-		}
-
-		vTaskDelay((1000/BUTTON_UPDATE_FREQUENCY_HZ)/portTICK_RATE_MS);
-	}
-}
-*/
 void vCompare(void* pvParameters)														//Comparing Approximated Pi with Reference
 {
-	int32_t RoundVietaPi = 0;
-	int32_t RoundLeibPi = 0;
-	int32_t RoundRefPi = 0;
+	uint32_t RoundVietaPi = 0;
+	uint32_t RoundLeibPi = 0;
+	uint32_t RoundRefPi = 0;
 	while(1)
 	{
-		RoundVietaPi = (int32_t) VietaPi * 10e7;
-		RoundLeibPi = (int32_t) LeibnizPi * 10e7;
-		RoundRefPi = (int32_t) RefPi * 10e7;
-		if (( RoundRefPi == RoundLeibPi) || ( RoundRefPi == RoundVietaPi))
+		RoundVietaPi = (uint32_t) (VietaPi * 10e4);
+		RoundLeibPi = (uint32_t) (LeibnizPi * 10e4);
+		RoundRefPi = (uint32_t) (RefPi * 10e4);
+		if (TimerRuning && (( RoundRefPi == RoundLeibPi) || ( RoundRefPi == RoundVietaPi)))
 		{
-			
+			TimerRuning = 0;
 		}
 		vTaskDelay(10/portTICK_RATE_MS);
 	}
@@ -239,18 +220,19 @@ void vDisplaytask(void* pvParameters)									//Display Task
 			break;
 		case RunVieta:
 		case StopVieta:
-			sprintf(&TitleString[0], "Vieta Approx:");
+			sprintf(&TitleString[0], "Vieta Approx:  ");
 			sprintf(&ApproxPiString[0], "ApproxPI: %.8f", VietaPi);
 			break;
 		default:
 			State = StopLeibniz;
 			break;
 		}
-	sprintf(&RefPiString[0], "Ref PI: %.8f", RefPi);
-	sprintf(&TimeString[0], "Time: %.2i:%.2i", GlobalMin, GlobalSec);
+	//sprintf(&RefPiString[0], "Refer PI: %.8f", RefPi);
+	sprintf(&RefPiString[0], "Refer PI: %.8f", RefPi);
+	sprintf(&TimeString[0], "Time: %.2i:%.2i:%.2i", GlobalMin, GlobalSec, GlobalHunSec);
 	vDisplayWriteStringAtPos(0,0, "%s", TitleString);	
 	vDisplayWriteStringAtPos(1,0, "%s", ApproxPiString);	
-	vDisplayWriteStringAtPos(2,0, "%s", RefPi);	
+	vDisplayWriteStringAtPos(2,0, "%s", RefPiString);	
 	vDisplayWriteStringAtPos(3,0, "%s", TimeString);
 	vTaskDelayUntil(&lasttime, 500/portTICK_RATE_MS);
 	}
@@ -266,20 +248,24 @@ void controllerTask(void* pvParameters) {
 			if (State == StopLeibniz)
 			{
 				State = RunLeibniz;
+				TimerRuning = 1;
 			}
 			else if (State == StopVieta)
 			{
 				State = RunVieta;
+				TimerRuning = 1;
 			}
 		}
 		if(getButtonPress(BUTTON2) == SHORT_PRESSED) {
 			if (State == RunLeibniz)
 			{
 				State = StopLeibniz;
+				TimerRuning = 0;
 			}
 			else if (State == RunVieta)
 			{
 				State = StopVieta;	
+				TimerRuning = 0;
 			}
 		}
 		if(getButtonPress(BUTTON3) == SHORT_PRESSED) {
