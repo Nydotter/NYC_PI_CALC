@@ -227,7 +227,6 @@ void vDisplaytask(void* pvParameters)									//Display Task
 			State = StopLeibniz;
 			break;
 		}
-	//sprintf(&RefPiString[0], "Refer PI: %.8f", RefPi);
 	sprintf(&RefPiString[0], "Refer PI: %.8f", RefPi);
 	sprintf(&TimeString[0], "Time: %.2i:%.2i:%.2i", GlobalMin, GlobalSec, GlobalHunSec);
 	vDisplayWriteStringAtPos(0,0, "%s", TitleString);	
