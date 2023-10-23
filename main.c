@@ -43,7 +43,7 @@ Start of global variables
 *********************************************************************************/
 
 volatile float LeibnizPi = 0;
-volatile float FakePI = 0;
+volatile double VietaPi =0;
 volatile float RefPi = 3.14159265359;
 
 
@@ -58,8 +58,9 @@ St
 
 extern void vApplicationIdleHook( void );
 void vPiLeibniz(void *pvParameters);
-void vButtonTask(void *pvParameters);
+//void vButtonTask(void *pvParameters);
 void controllerTask(void* pvParameters);
+void vVietaPi(void* pvParameters);
 
 
 TaskHandle_t ledTask;
@@ -75,9 +76,10 @@ int main(void)
 	vInitDisplay();
 	
 	xTaskCreate(controllerTask, (const char *) "control_tsk", configMINIMAL_STACK_SIZE+150, NULL, 3, NULL);
-	xTaskCreate(vButtonTask, (const char *) "btTask", configMINIMAL_STACK_SIZE, NULL, 2, NULL);
+	//xTaskCreate(vButtonTask, (const char *) "btTask", configMINIMAL_STACK_SIZE, NULL, 2, NULL);
 	//xTaskCreate( vTimeMeasurement, (const char *) "TimeMeasurement", configMINIMAL_STACK_SIZE+10, NULL, 1, &TimeMeasurement);
-	xTaskCreate( vPiLeibniz, (const char *) "Leibniz_tsk", configMINIMAL_STACK_SIZE+10, NULL, 2, NULL);
+	xTaskCreate( vPiLeibniz, (const char *) "Leibniz_tsk", configMINIMAL_STACK_SIZE+10, NULL, 3, NULL);
+	xTaskCreate( vVietaPi, (const char *) "vVietaPi_tsk", configMINIMAL_STACK_SIZE+10, NULL, 2, NULL);
 
 	
 	vTaskStartScheduler();
@@ -91,16 +93,40 @@ void vPiLeibniz(void* pvParameters)
 	float NextSign = 1.0;
 		while (1)
 		{
-			
-			
 			LeibnizPi = LeibnizPi + (NextSign / (2 * CurIterations + 1)) * 4;
 			NextSign = -NextSign;
 			CurIterations++;
+			vTaskDelay(10/portTICK_RATE_MS);
+			if (Reset)
+			{
+				LeibnizPi = 0;
+				CurIterations = 0;
+				NextSign = 1.0;
+				Reset = 0;
+			}
 		}
+}
+
+void vVietaPi(void* pvParameters)
+{
+
+	double CurrentApprox = 1;
+	double CurrentSqrt = 0;
+	
+	while(1)
+	{
+		CurrentSqrt = sqrt(2 + CurrentSqrt); 
+		
+		CurrentApprox = CurrentApprox * (CurrentSqrt / 2.0);
+		
+		VietaPi = 2 / CurrentApprox;
+		vTaskDelay(10/portTICK_RATE_MS);
+	}
 }
 
 
 
+/*
 void vButtonTask(void* pvParameters) {
 	initButtons(); // Initialize Button handler
 	for(;;) {
@@ -122,6 +148,25 @@ void vButtonTask(void* pvParameters) {
 
 		vTaskDelay((1000/BUTTON_UPDATE_FREQUENCY_HZ)/portTICK_RATE_MS);
 	}
+}
+*/
+void vCompare(void* pvParameters)
+{
+	int32_t RoundVietaPi = 0;
+	int32_t RoundLeibPi = 0;
+	int32_t RoundRefPi = 0;
+	while(1)
+	{
+		RoundVietaPi = (int32_t) VietaPi * 10e7;
+		RoundLeibPi = (int32_t) LeibnizPi * 10e7;
+		RoundRefPi = (int32_t) RefPi * 10e7;
+		if (( RoundRefPi == RoundLeibPi) || ( RoundRefPi == RoundVietaPi))
+		{
+			Reset = 1;
+		}
+		vTaskDelay(10/portTICK_RATE_MS);
+	}
+	
 }
 
 
