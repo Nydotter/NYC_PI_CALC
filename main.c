@@ -43,8 +43,10 @@ Start of global variables
 *********************************************************************************/
 
 volatile float LeibnizPi = 0;
-volatile double VietaPi =0;
+volatile double VietaPi = 0;
 volatile float RefPi = 3.14159265359;
+volatile int GlobalSec = 0;
+volatile int GlobalMin = 0;
 
 
 /*********************************************************************************
@@ -61,9 +63,12 @@ void vPiLeibniz(void *pvParameters);
 //void vButtonTask(void *pvParameters);
 void controllerTask(void* pvParameters);
 void vVietaPi(void* pvParameters);
+void vCompare(void* pvParameters);
+void vDisplaytask(void* pvParameters);
+//void vTimeMeasurement(void* pvParameters);
 
 
-TaskHandle_t ledTask;
+
 
 void vApplicationIdleHook( void )
 {	
@@ -77,15 +82,33 @@ int main(void)
 	
 	xTaskCreate(controllerTask, (const char *) "control_tsk", configMINIMAL_STACK_SIZE+150, NULL, 3, NULL);
 	//xTaskCreate(vButtonTask, (const char *) "btTask", configMINIMAL_STACK_SIZE, NULL, 2, NULL);
-	//xTaskCreate( vTimeMeasurement, (const char *) "TimeMeasurement", configMINIMAL_STACK_SIZE+10, NULL, 1, &TimeMeasurement);
-	xTaskCreate( vPiLeibniz, (const char *) "Leibniz_tsk", configMINIMAL_STACK_SIZE+10, NULL, 3, NULL);
+	xTaskCreate( vPiLeibniz, (const char *) "Leibniz_tsk", configMINIMAL_STACK_SIZE+10, NULL, 2, NULL);
 	xTaskCreate( vVietaPi, (const char *) "vVietaPi_tsk", configMINIMAL_STACK_SIZE+10, NULL, 2, NULL);
-
+	xTaskCreate( vCompare, (const char *) "vComp_tsk", configMINIMAL_STACK_SIZE+10, NULL, 3, NULL);
+	xTaskCreate( vDisplaytask, (const char *) "vDisp_tsk", configMINIMAL_STACK_SIZE+10, NULL, 2, NULL);
+	//xTaskCreate( vTimeMeasurement, (const char *) "vTimeMeasurement_tsk", configMINIMAL_STACK_SIZE+10, NULL, 2, NULL);
 	
 	vTaskStartScheduler();
 	
 	return 0;
 }
+
+/*
+void vTimeMeasurement(void* pvParameters){
+TickType_t lasttime = xTaskGetTickCount();
+	for(;;) {
+		GlobalSec++;
+		if(GlobalSec >= 60) {
+			GlobalSec = 0;
+			GlobalMin++;
+		}
+		if(GlobalMin >= 60) {
+			GlobalMin = 0;
+		}
+		vTaskDelayUntil(&lasttime, 1000/portTICK_RATE_MS);
+	}
+}
+*/
 
 void vPiLeibniz(void* pvParameters)
 {
@@ -94,9 +117,10 @@ void vPiLeibniz(void* pvParameters)
 		while (1)
 		{
 			LeibnizPi = LeibnizPi + (NextSign / (2 * CurIterations + 1)) * 4;
-			NextSign = -NextSign;
+			NextSign = - NextSign;
 			CurIterations++;
 			vTaskDelay(10/portTICK_RATE_MS);
+			/*
 			if (Reset)
 			{
 				LeibnizPi = 0;
@@ -104,6 +128,7 @@ void vPiLeibniz(void* pvParameters)
 				NextSign = 1.0;
 				Reset = 0;
 			}
+			*/
 		}
 }
 
@@ -162,11 +187,39 @@ void vCompare(void* pvParameters)
 		RoundRefPi = (int32_t) RefPi * 10e7;
 		if (( RoundRefPi == RoundLeibPi) || ( RoundRefPi == RoundVietaPi))
 		{
-			Reset = 1;
+			//Reset = 1;
 		}
 		vTaskDelay(10/portTICK_RATE_MS);
 	}
 	
+}
+
+
+
+void vDisplaytask(void* pvParameters)
+{
+	
+	char VietaPiString[20];
+	int VietaDez;
+	char LeibnizPiString[20];
+	char RefPiString[20];
+	char TimeString[20];
+	
+	while(1)
+	{
+	VietaDez = (int)(VietaPi * 10e6) % (int)10e6;
+		
+	sprintf(&VietaPiString[0], "VPI: %i,%8i", (uint32_t)VietaPi, VietaDez);
+	sprintf(&LeibnizPiString[0], "LPI: %f", LeibnizPi);
+	sprintf(&RefPiString[0], "RPI: %.8f", RefPi);
+	//sprintf(&TimeString[0], "%.2i:%.2i", GlobalMin, GlobalSec);
+	vDisplayWriteStringAtPos(0,0, "%s", VietaPiString);	
+	vDisplayWriteStringAtPos(1,0, "%s", LeibnizPiString);	
+	vDisplayWriteStringAtPos(3,0, "%s", RefPiString);	
+	//vDisplayWriteStringAtPos(2,0, "%s", TimeString);
+	vTaskDelay(10/portTICK_RATE_MS);
+	}
+
 }
 
 
