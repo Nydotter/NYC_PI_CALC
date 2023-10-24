@@ -1,6 +1,5 @@
 /*
  * NYC_PI_CALC.c
- *
  * Created: 20.03.2018 18:32:07
  * Author : Cwis
  */ 
@@ -17,6 +16,7 @@ Includes
 #include "clksys_driver.h"
 #include "sleepConfig.h"
 #include "port_driver.h"
+#include "stdio.h"
 #include "math.h"
 
 #include "FreeRTOS.h"
@@ -41,11 +41,13 @@ Global variables
 
 volatile float LeibnizPi = 0;
 volatile double VietaPi = 0;
-volatile float RefPi = 3.14159265359;
+volatile float RefPi = 3.1415926;
 volatile int GlobalSec = 0;
 volatile int GlobalMin = 0;
 volatile int GlobalHunSec = 0;
 volatile bool Reset = 0;
+volatile bool VietaResetted = 1;
+volatile bool LeibnizResetted = 1;
 volatile bool TimerRuning = 0;
 
 typedef enum {StopLeibniz, StopVieta, RunLeibniz, RunVieta}StateType;
@@ -82,12 +84,12 @@ int main(void)
 	vInitClock();
 	vInitDisplay();
 	
-	xTaskCreate(controllerTask, (const char *) "vControl_tsk", configMINIMAL_STACK_SIZE+150, NULL, 3, NULL);
+	xTaskCreate( controllerTask, (const char *) "vControl_tsk", configMINIMAL_STACK_SIZE+150, NULL, 3, NULL);
 	xTaskCreate( vPiLeibniz, (const char *) "vLeibniz_tsk", configMINIMAL_STACK_SIZE+10, NULL, 2, NULL);
 	xTaskCreate( vVietaPi, (const char *) "vVietaPi_tsk", configMINIMAL_STACK_SIZE+10, NULL, 2, NULL);
 	xTaskCreate( vCompare, (const char *) "vComp_tsk", configMINIMAL_STACK_SIZE+10, NULL, 3, NULL);
-	xTaskCreate( vDisplaytask, (const char *) "vDisp_tsk", configMINIMAL_STACK_SIZE+150, NULL, 2, NULL);
-	xTaskCreate( vTimeMeasurement, (const char *) "vTimeMeasurement_tsk", configMINIMAL_STACK_SIZE+100, NULL, 3, NULL);
+	xTaskCreate( vDisplaytask, (const char *) "vDisp_tsk", configMINIMAL_STACK_SIZE+150, NULL, 3, NULL);
+	xTaskCreate( vTimeMeasurement, (const char *) "vTimeMeasurement_tsk", configMINIMAL_STACK_SIZE+100, NULL, 1, NULL);
 	
 	vTaskStartScheduler();
 	
@@ -118,14 +120,17 @@ TickType_t lasttime = xTaskGetTickCount();
 				GlobalMin = 0;
 			}
 		}
-		if (Reset)
+		if (Reset & VietaResetted & LeibnizResetted)
 		{
+			GlobalHunSec = 0;
 			GlobalSec = 0;
 			GlobalMin = 0;
+			LeibnizResetted = 0;
+			VietaResetted = 0;
 			Reset = 0;
 			TimerRuning = 0;
 		}
-		vTaskDelayUntil(&lasttime, 10/portTICK_RATE_MS);
+		vTaskDelay(10/portTICK_RATE_MS);
 	}
 }
 
@@ -147,8 +152,9 @@ void vPiLeibniz(void* pvParameters)												//Approximation of Pi by Leibniz 
 				LeibnizPi = 0;
 				CurIterations = 0;
 				NextSign = 1.0;
+				LeibnizResetted = 1;
 			}
-			vTaskDelay(5/portTICK_RATE_MS);
+			vTaskDelay(10/portTICK_RATE_MS);
 		}
 }
 
@@ -172,8 +178,9 @@ void vVietaPi(void* pvParameters)											//Approximation of Pi by Vieta Metho
 				CurrentApprox = 1;
 				CurrentSqrt = 0;
 				VietaPi = 0;
+				VietaResetted = 1;
 			}
-		vTaskDelay(5/portTICK_RATE_MS);
+		vTaskDelay(10/portTICK_RATE_MS);
 	}
 }
 
@@ -216,18 +223,18 @@ void vDisplaytask(void* pvParameters)									//Display Task
 		case RunLeibniz:	
 		case StopLeibniz:
 			sprintf(&TitleString[0], "Leibniz Approx:");	
-			sprintf(&ApproxPiString[0], "ApproxPI: %.8f", LeibnizPi);
+			sprintf(&ApproxPiString[0], "ApproxPI: %.7f", LeibnizPi);
 			break;
 		case RunVieta:
 		case StopVieta:
 			sprintf(&TitleString[0], "Vieta Approx:  ");
-			sprintf(&ApproxPiString[0], "ApproxPI: %.8f", VietaPi);
+			sprintf(&ApproxPiString[0], "ApproxPI: %.7f", VietaPi);
 			break;
 		default:
 			State = StopLeibniz;
 			break;
 		}
-	sprintf(&RefPiString[0], "Refer PI: %.8f", RefPi);
+	sprintf(&RefPiString[0], "Refer PI: %.7f", RefPi);
 	sprintf(&TimeString[0], "Time: %.2i:%.2i:%.2i", GlobalMin, GlobalSec, GlobalHunSec);
 	vDisplayWriteStringAtPos(0,0, "%s", TitleString);	
 	vDisplayWriteStringAtPos(1,0, "%s", ApproxPiString);	
