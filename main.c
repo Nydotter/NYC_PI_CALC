@@ -39,9 +39,9 @@ Includes
 Global variables
 *********************************************************************************/
 
-volatile float LeibnizPi = 0;
+volatile double LeibnizPi = 0;
 volatile double VietaPi = 0;
-volatile float RefPi = 3.1415926;
+volatile double RefPi = 3.1415926;
 volatile int GlobalSec = 0;
 volatile int GlobalMin = 0;
 volatile int GlobalHunSec = 0;
@@ -85,11 +85,11 @@ int main(void)
 	vInitDisplay();
 	
 	xTaskCreate( controllerTask, (const char *) "vControl_tsk", configMINIMAL_STACK_SIZE+150, NULL, 3, NULL);
-	xTaskCreate( vPiLeibniz, (const char *) "vLeibniz_tsk", configMINIMAL_STACK_SIZE+10, NULL, 2, NULL);
-	xTaskCreate( vVietaPi, (const char *) "vVietaPi_tsk", configMINIMAL_STACK_SIZE+10, NULL, 2, NULL);
-	xTaskCreate( vCompare, (const char *) "vComp_tsk", configMINIMAL_STACK_SIZE+10, NULL, 3, NULL);
+	xTaskCreate( vPiLeibniz, (const char *) "vLeibniz_tsk", configMINIMAL_STACK_SIZE+10, NULL, 1, NULL);
+	xTaskCreate( vVietaPi, (const char *) "vVietaPi_tsk", configMINIMAL_STACK_SIZE+10, NULL, 1, NULL);
+	xTaskCreate( vCompare, (const char *) "vComp_tsk", configMINIMAL_STACK_SIZE+10, NULL, 2, NULL);
 	xTaskCreate( vDisplaytask, (const char *) "vDisp_tsk", configMINIMAL_STACK_SIZE+150, NULL, 3, NULL);
-	xTaskCreate( vTimeMeasurement, (const char *) "vTimeMeasurement_tsk", configMINIMAL_STACK_SIZE+100, NULL, 1, NULL);
+	xTaskCreate( vTimeMeasurement, (const char *) "vTimeMeasurement_tsk", configMINIMAL_STACK_SIZE+100, NULL, 2, NULL);
 	
 	vTaskStartScheduler();
 	
@@ -138,12 +138,12 @@ TickType_t lasttime = xTaskGetTickCount();
 void vPiLeibniz(void* pvParameters)												//Approximation of Pi by Leibniz Method
 {
 	uint32_t CurIterations = 0;
-	float NextSign = 1.0;
+	double NextSign = 1.0;
 		while (1)
 		{
 			if (State == RunLeibniz)
 			{
-				LeibnizPi = LeibnizPi + (NextSign / (2 * CurIterations + 1)) * 4;
+				LeibnizPi = LeibnizPi + (NextSign / (2.0 * CurIterations + 1)) * 4;
 				NextSign = - NextSign;
 				CurIterations++;
 			}
@@ -154,7 +154,7 @@ void vPiLeibniz(void* pvParameters)												//Approximation of Pi by Leibniz 
 				NextSign = 1.0;
 				LeibnizResetted = 1;
 			}
-			vTaskDelay(10/portTICK_RATE_MS);
+			vTaskDelay(1/portTICK_RATE_MS);
 		}
 }
 
@@ -180,7 +180,7 @@ void vVietaPi(void* pvParameters)											//Approximation of Pi by Vieta Metho
 				VietaPi = 0;
 				VietaResetted = 1;
 			}
-		vTaskDelay(10/portTICK_RATE_MS);
+		vTaskDelay(1/portTICK_RATE_MS);
 	}
 }
 
@@ -192,9 +192,9 @@ void vCompare(void* pvParameters)														//Comparing Approximated Pi with 
 	uint32_t RoundRefPi = 0;
 	while(1)
 	{
-		RoundVietaPi = (uint32_t) (VietaPi * 10e4);
-		RoundLeibPi = (uint32_t) (LeibnizPi * 10e4);
-		RoundRefPi = (uint32_t) (RefPi * 10e4);
+		RoundVietaPi = (uint32_t) (VietaPi * 100000);
+		RoundLeibPi = (uint32_t) (LeibnizPi * 100000);
+		RoundRefPi = (uint32_t) (RefPi * 100000);
 		if (TimerRuning && (( RoundRefPi == RoundLeibPi) || ( RoundRefPi == RoundVietaPi)))
 		{
 			TimerRuning = 0;
