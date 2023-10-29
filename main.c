@@ -125,7 +125,7 @@ TickType_t lasttime = xTaskGetTickCount();
 				GlobalMin = 0;
 			}
 		}
-		if (xEventGroupGetBits(ProgState) & (LeibResetBit && ResetBit && VietResetBit) )
+		if (xEventGroupGetBits(ProgState) & 0x07) 
 		{
 			GlobalHunSec = 0;
 			GlobalSec = 0;
@@ -135,7 +135,7 @@ TickType_t lasttime = xTaskGetTickCount();
 			xEventGroupClearBits(ProgState, ResetBit);
 			xEventGroupClearBits(ProgState, TimerRunBit);
 		}
-		vTaskDelayUntil(10/portTICK_RATE_MS);
+		vTaskDelayUntil(&lasttime, 10/portTICK_RATE_MS);
 	}
 }
 
