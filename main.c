@@ -45,10 +45,12 @@ volatile double RefPi = 3.1415926;
 volatile int GlobalSec = 0;
 volatile int GlobalMin = 0;
 volatile int GlobalHunSec = 0;
-volatile bool Reset = 0;
-volatile bool VietaResetted = 1;
-volatile bool LeibnizResetted = 1;
-volatile bool TimerRuning = 0;
+
+#define ResetBit		( 1 << 0 )
+#define LeibResetBit	( 1 << 1 )
+#define VietResetBit	( 1 << 2 )
+#define TimerRunBit		( 1 << 3 )
+#define ProgStateMask	0xFF
 
 typedef enum {StopLeibniz, StopVieta, RunLeibniz, RunVieta}StateType;
 volatile StateType State = StopLeibniz;
@@ -65,6 +67,8 @@ void vVietaPi(void* pvParameters);
 void vCompare(void* pvParameters);
 void vDisplaytask(void* pvParameters);
 void vTimeMeasurement(void* pvParameters);
+
+EventGroupHandle_t ProgState;
 
 /*********************************************************************************
 Idle Task
@@ -90,7 +94,8 @@ int main(void)
 	xTaskCreate( vCompare, (const char *) "vComp_tsk", configMINIMAL_STACK_SIZE+10, NULL, 2, NULL);
 	xTaskCreate( vDisplaytask, (const char *) "vDisp_tsk", configMINIMAL_STACK_SIZE+150, NULL, 3, NULL);
 	xTaskCreate( vTimeMeasurement, (const char *) "vTimeMeasurement_tsk", configMINIMAL_STACK_SIZE+100, NULL, 2, NULL);
-	
+	ProgState = xEventGroupCreate();
+	vDisplayClear();
 	vTaskStartScheduler();
 	
 	return 0;
@@ -104,7 +109,7 @@ Functions
 void vTimeMeasurement(void* pvParameters){							//Time Function for measuring execution time
 TickType_t lasttime = xTaskGetTickCount();
 	for(;;) {
-		if (TimerRuning)
+		if (xEventGroupGetBits(ProgState) & TimerRunBit)
 		{
 			
 			GlobalHunSec++;
@@ -120,17 +125,17 @@ TickType_t lasttime = xTaskGetTickCount();
 				GlobalMin = 0;
 			}
 		}
-		if (Reset & VietaResetted & LeibnizResetted)
+		if (xEventGroupGetBits(ProgState) & (LeibResetBit && ResetBit && VietResetBit) )
 		{
 			GlobalHunSec = 0;
 			GlobalSec = 0;
 			GlobalMin = 0;
-			LeibnizResetted = 0;
-			VietaResetted = 0;
-			Reset = 0;
-			TimerRuning = 0;
+			xEventGroupClearBits(ProgState, LeibResetBit);
+			xEventGroupClearBits(ProgState, VietResetBit);
+			xEventGroupClearBits(ProgState, ResetBit);
+			xEventGroupClearBits(ProgState, TimerRunBit);
 		}
-		vTaskDelay(10/portTICK_RATE_MS);
+		vTaskDelayUntil(10/portTICK_RATE_MS);
 	}
 }
 
@@ -147,12 +152,12 @@ void vPiLeibniz(void* pvParameters)												//Approximation of Pi by Leibniz 
 				NextSign = - NextSign;
 				CurIterations++;
 			}
-			if (Reset)
+			if (xEventGroupGetBits(ProgState) & ResetBit)
 			{
 				LeibnizPi = 0;
 				CurIterations = 0;
 				NextSign = 1.0;
-				LeibnizResetted = 1;
+				xEventGroupSetBits(ProgState, LeibResetBit);
 			}
 			vTaskDelay(1/portTICK_RATE_MS);
 		}
@@ -173,12 +178,12 @@ void vVietaPi(void* pvParameters)											//Approximation of Pi by Vieta Metho
 			CurrentApprox = CurrentApprox * (CurrentSqrt / 2.0);
 			VietaPi = 2 / CurrentApprox;
 		}
-		if (Reset)
+		if (xEventGroupGetBits(ProgState) & ResetBit)
 			{
 				CurrentApprox = 1;
 				CurrentSqrt = 0;
 				VietaPi = 0;
-				VietaResetted = 1;
+				xEventGroupSetBits(ProgState, VietResetBit);
 			}
 		vTaskDelay(1/portTICK_RATE_MS);
 	}
@@ -195,9 +200,9 @@ void vCompare(void* pvParameters)														//Comparing Approximated Pi with 
 		RoundVietaPi = (uint32_t) (VietaPi * 100000);
 		RoundLeibPi = (uint32_t) (LeibnizPi * 100000);
 		RoundRefPi = (uint32_t) (RefPi * 100000);
-		if (TimerRuning && (( RoundRefPi == RoundLeibPi) || ( RoundRefPi == RoundVietaPi)))
+		if ((xEventGroupGetBits(ProgState) & TimerRunBit) && (( RoundRefPi == RoundLeibPi) || ( RoundRefPi == RoundVietaPi)))
 		{
-			TimerRuning = 0;
+			xEventGroupClearBits(ProgState, TimerRunBit);
 		}
 		vTaskDelay(10/portTICK_RATE_MS);
 	}
@@ -254,28 +259,28 @@ void controllerTask(void* pvParameters) {
 			if (State == StopLeibniz)
 			{
 				State = RunLeibniz;
-				TimerRuning = 1;
+				xEventGroupSetBits(ProgState, TimerRunBit);
 			}
 			else if (State == StopVieta)
 			{
 				State = RunVieta;
-				TimerRuning = 1;
+				xEventGroupSetBits(ProgState, TimerRunBit);
 			}
 		}
 		if(getButtonPress(BUTTON2) == SHORT_PRESSED) {
 			if (State == RunLeibniz)
 			{
 				State = StopLeibniz;
-				TimerRuning = 0;
+				xEventGroupClearBits(ProgState, TimerRunBit);
 			}
 			else if (State == RunVieta)
 			{
 				State = StopVieta;	
-				TimerRuning = 0;
+				xEventGroupClearBits(ProgState, TimerRunBit);
 			}
 		}
 		if(getButtonPress(BUTTON3) == SHORT_PRESSED) {
-			Reset = 1;
+			xEventGroupSetBits(ProgState, ResetBit);
 			if (State == RunLeibniz)
 			{
 				State = StopLeibniz;
