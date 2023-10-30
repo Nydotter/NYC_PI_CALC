@@ -1,7 +1,7 @@
 /*
  * NYC_PI_CALC.c
  * Created: 20.03.2018 18:32:07
- * Author : Cwis
+ * Author : Chris
  */ 
 
 
@@ -45,6 +45,8 @@ volatile double RefPi = 3.1415926;
 volatile int GlobalSec = 0;
 volatile int GlobalMin = 0;
 volatile int GlobalHunSec = 0;
+volatile uint32_t GlobalTimeStart = 0;
+volatile uint32_t CurrentTime = 0;
 
 #define ResetBit		( 1 << 0 )
 #define LeibResetBit	( 1 << 1 )
@@ -111,7 +113,7 @@ TickType_t lasttime = xTaskGetTickCount();
  uint32_t ProgStateVar = 0;
 	for(;;) {
 		ProgStateVar = (xEventGroupGetBits(ProgState) & ProgStateMask);
-		if (ProgStateVar & TimerRunBit )
+		/*if (ProgStateVar & TimerRunBit )
 		{
 			
 			GlobalHunSec++;
@@ -126,12 +128,14 @@ TickType_t lasttime = xTaskGetTickCount();
 			if(GlobalMin >= 60) {
 				GlobalMin = 0;
 			}
+		}*/
+		if ( ProgStateVar & TimerRunBit)
+		{
+			CurrentTime = xTaskGetTickCount();
 		}
 		if ((ProgStateVar & 0x07) == 0x07) 
 		{
-			GlobalHunSec = 0;
-			GlobalSec = 0;
-			GlobalMin = 0;
+			GlobalTimeStart = 0;
 			xEventGroupClearBits(ProgState, LeibResetBit);
 			xEventGroupClearBits(ProgState, VietResetBit);
 			xEventGroupClearBits(ProgState, ResetBit);
@@ -177,7 +181,6 @@ void vVietaPi(void* pvParameters)											//Approximation of Pi by Vieta Metho
 	while(1)
 	{
 		ProgStateVar = xEventGroupGetBits(ProgState) & ProgStateMask;
-		
 		if ( State == RunVieta)
 		{
 			CurrentSqrt = sqrt(2 + CurrentSqrt); 
@@ -227,28 +230,35 @@ void vDisplaytask(void* pvParameters)									//Display Task
 	char RefPiString[20];
 	char TitleString[20];
 	char TimeString[20];
+	int HunSec = 0;
+	int Sec = 0;
+	int Min = 0;
 	
 	while(1)
 	{
+		
 		switch(State)
 		{
 			
-		case RunLeibniz:	
-		case StopLeibniz:
-			sprintf(&TitleString[0], "Leibniz Approx:");	
-			sprintf(&ApproxPiString[0], "ApproxPI: %.7f", LeibnizPi);
-			break;
-		case RunVieta:
-		case StopVieta:
-			sprintf(&TitleString[0], "Vieta Approx:  ");
-			sprintf(&ApproxPiString[0], "ApproxPI: %.7f", VietaPi);
-			break;
-		default:
-			State = StopLeibniz;
-			break;
+			case RunLeibniz:	
+			case StopLeibniz:
+				sprintf(&TitleString[0], "Leibniz Approx:");	
+				sprintf(&ApproxPiString[0], "ApproxPI: %.7f", LeibnizPi);
+				break;
+			case RunVieta:
+			case StopVieta:
+				sprintf(&TitleString[0], "Vieta Approx:  ");
+				sprintf(&ApproxPiString[0], "ApproxPI: %.7f", VietaPi);
+				break;
+			default:
+				State = StopLeibniz;
+				break;
 		}
+		HunSec = (int)(CurrentTime - GlobalTimeStart) % 1000;
+		Sec = (int)((CurrentTime - GlobalTimeStart - HunSec) % 60000)/1000;
+		Min = (int)(((CurrentTime - GlobalTimeStart - HunSec - Sec) % 3600000)/60000);
 	sprintf(&RefPiString[0], "Refer PI: %.7f", RefPi);
-	sprintf(&TimeString[0], "Time: %.2i:%.2i:%.2i", GlobalMin, GlobalSec, GlobalHunSec);
+	sprintf(&TimeString[0], "Time: %.2i:%.2i:%.3i", Min, Sec, HunSec);
 	vDisplayWriteStringAtPos(0,0, "%s", TitleString);	
 	vDisplayWriteStringAtPos(1,0, "%s", ApproxPiString);	
 	vDisplayWriteStringAtPos(2,0, "%s", RefPiString);	
@@ -267,11 +277,19 @@ void controllerTask(void* pvParameters) {
 			if (State == StopLeibniz)
 			{
 				State = RunLeibniz;
+				if (GlobalTimeStart == 0)
+				{
+					GlobalTimeStart = xTaskGetTickCount();
+				}
 				xEventGroupSetBits(ProgState, TimerRunBit);
 			}
 			else if (State == StopVieta)
 			{
 				State = RunVieta;
+				if (GlobalTimeStart == 0)
+				{
+					GlobalTimeStart = xTaskGetTickCount();
+				}
 				xEventGroupSetBits(ProgState, TimerRunBit);
 			}
 		}
