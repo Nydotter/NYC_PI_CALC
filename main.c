@@ -108,8 +108,10 @@ Functions
 
 void vTimeMeasurement(void* pvParameters){							//Time Function for measuring execution time
 TickType_t lasttime = xTaskGetTickCount();
+ uint32_t ProgStateVar = 0;
 	for(;;) {
-		if (xEventGroupGetBits(ProgState) & TimerRunBit)
+		ProgStateVar = (xEventGroupGetBits(ProgState) & ProgStateMask);
+		if (ProgStateVar & TimerRunBit )
 		{
 			
 			GlobalHunSec++;
@@ -125,7 +127,7 @@ TickType_t lasttime = xTaskGetTickCount();
 				GlobalMin = 0;
 			}
 		}
-		if (xEventGroupGetBits(ProgState) & 0x07) 
+		if ((ProgStateVar & 0x07) == 0x07) 
 		{
 			GlobalHunSec = 0;
 			GlobalSec = 0;
@@ -143,16 +145,18 @@ TickType_t lasttime = xTaskGetTickCount();
 void vPiLeibniz(void* pvParameters)												//Approximation of Pi by Leibniz Method
 {
 	uint32_t CurIterations = 0;
+	uint32_t ProgStateVar = 0;
 	double NextSign = 1.0;
 		while (1)
 		{
+			ProgStateVar = xEventGroupGetBits(ProgState) & ProgStateMask;
 			if (State == RunLeibniz)
 			{
 				LeibnizPi = LeibnizPi + (NextSign / (2.0 * CurIterations + 1)) * 4;
 				NextSign = - NextSign;
 				CurIterations++;
 			}
-			if (xEventGroupGetBits(ProgState) & ResetBit)
+			if (ProgStateVar & ResetBit)
 			{
 				LeibnizPi = 0;
 				CurIterations = 0;
@@ -168,9 +172,11 @@ void vVietaPi(void* pvParameters)											//Approximation of Pi by Vieta Metho
 
 	double CurrentApprox = 1;
 	double CurrentSqrt = 0;
+	uint32_t ProgStateVar = 0;
 	
 	while(1)
 	{
+		ProgStateVar = xEventGroupGetBits(ProgState) & ProgStateMask;
 		
 		if ( State == RunVieta)
 		{
@@ -178,7 +184,7 @@ void vVietaPi(void* pvParameters)											//Approximation of Pi by Vieta Metho
 			CurrentApprox = CurrentApprox * (CurrentSqrt / 2.0);
 			VietaPi = 2 / CurrentApprox;
 		}
-		if (xEventGroupGetBits(ProgState) & ResetBit)
+		if (ProgStateVar & ResetBit)
 			{
 				CurrentApprox = 1;
 				CurrentSqrt = 0;
@@ -195,12 +201,14 @@ void vCompare(void* pvParameters)														//Comparing Approximated Pi with 
 	uint32_t RoundVietaPi = 0;
 	uint32_t RoundLeibPi = 0;
 	uint32_t RoundRefPi = 0;
+	uint32_t ProgStateVar = 0;
 	while(1)
 	{
+		ProgStateVar = xEventGroupGetBits(ProgState) & ProgStateMask;
 		RoundVietaPi = (uint32_t) (VietaPi * 100000);
 		RoundLeibPi = (uint32_t) (LeibnizPi * 100000);
 		RoundRefPi = (uint32_t) (RefPi * 100000);
-		if ((xEventGroupGetBits(ProgState) & TimerRunBit) && (( RoundRefPi == RoundLeibPi) || ( RoundRefPi == RoundVietaPi)))
+		if ((ProgStateVar & TimerRunBit) && (( RoundRefPi == RoundLeibPi) || ( RoundRefPi == RoundVietaPi)))
 		{
 			xEventGroupClearBits(ProgState, TimerRunBit);
 		}
