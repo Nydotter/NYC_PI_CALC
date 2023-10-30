@@ -207,21 +207,18 @@ void vCompare(void* pvParameters)														//Comparing Approximated Pi with 
 void vDisplaytask(void* pvParameters)									//Display Task
 {
 	TickType_t lasttime = xTaskGetTickCount();
-
 	char ApproxPiString[20];
 	char RefPiString[20];
 	char TitleString[20];
 	char TimeString[20];
 	int ThouSec = 0;
 	int Sec = 0;
-	int Min = 0;
-	
+	int Min = 0;	
 	while(1)
 	{
 		
 		switch(State)
 		{
-			
 			case RunLeibniz:	
 			case StopLeibniz:
 				sprintf(&TitleString[0], "Leibniz Approx:");	
@@ -247,7 +244,6 @@ void vDisplaytask(void* pvParameters)									//Display Task
 		vDisplayWriteStringAtPos(3,0, "%s", TimeString);
 		vTaskDelayUntil(&lasttime, 500/portTICK_RATE_MS);
 	}
-
 }
 
 
@@ -299,6 +295,7 @@ void controllerTask(void* pvParameters) {
 			}
 		}
 		if(getButtonPress(BUTTON4) == SHORT_PRESSED) {
+			xEventGroupSetBits(ProgState, ResetBit);
 			if(State == StopLeibniz)
 			{
 				State = StopVieta;
