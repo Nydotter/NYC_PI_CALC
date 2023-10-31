@@ -42,8 +42,8 @@ Global variables
 volatile double LeibnizPi = 0;
 volatile double VietaPi = 0;
 volatile double RefPi = 3.1415926;
-volatile int GlobalTimeStart = 0;
-volatile int CurrentTime = 0;
+volatile uint32_t GlobalTimeStart = 0;
+volatile uint32_t CurrentTime = 0;
 
 #define ResetBit		( 1 << 0 )
 #define LeibResetBit	( 1 << 1 )
@@ -197,7 +197,7 @@ void vCompare(void* pvParameters)														//Comparing Approximated Pi with 
 		{
 			xEventGroupClearBits(ProgState, TimerRunBit);
 		}
-		vTaskDelay(10/portTICK_RATE_MS);
+		vTaskDelay(1/portTICK_RATE_MS);
 	}
 	
 }
@@ -233,11 +233,11 @@ void vDisplaytask(void* pvParameters)									//Display Task
 				State = StopLeibniz;
 				break;
 		}
-		ThouSec = (int)(CurrentTime - GlobalTimeStart) % 1000;
-		Sec = (int)((CurrentTime - GlobalTimeStart - ThouSec) % 60000)/1000;
-		Min = (int)(((CurrentTime - GlobalTimeStart - ThouSec - Sec) % 3600000)/60000);
+		ThouSec = (CurrentTime - GlobalTimeStart) % 1000;
+		Sec = ((CurrentTime - GlobalTimeStart - ThouSec) % 60000)/1000;
+		Min = (((CurrentTime - GlobalTimeStart - ThouSec - Sec) % 3600000)/60000);
 		sprintf(&RefPiString[0], "Refer PI: %.7f", RefPi);
-		sprintf(&TimeString[0], "Time: %.2i:%.2i:%.3i", Min, Sec, ThouSec);
+		sprintf(&TimeString[0], "Time: %.2i:%.2i:%.3i",Min, Sec, ThouSec);
 		vDisplayWriteStringAtPos(0,0, "%s", TitleString);	
 		vDisplayWriteStringAtPos(1,0, "%s", ApproxPiString);	
 		vDisplayWriteStringAtPos(2,0, "%s", RefPiString);	
